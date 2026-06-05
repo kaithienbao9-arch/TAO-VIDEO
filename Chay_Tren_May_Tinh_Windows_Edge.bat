@@ -48,10 +48,15 @@ echo APP_URL="http://localhost:3000" >> .env
 :: Mo phan mem bang Microsoft Edge o che do cua so doc lap (App Mode), loai bo hoan toan cac thanh dung cu, dia chi va tab
 start msedge --app=http://localhost:3000
 
-:: Khoi chay moi truong Dev o che do thu nho va tu dong thoat cua so hien tai
-start "" /min cmd /c "npm run dev"
-echo [OK] May chu da duoc khoi chay an. Cua so CMD nay se tu dong dong lai bay gio!
-timeout /t 3 >nul
+:: Chay may chu ngam hoan toan bang VBScript (An hoan toan khoi man hinh va thanh Taskbar)
+echo Set WshShell = CreateObject("WScript.Shell") > temp_run.vbs
+echo WshShell.Run "cmd.exe /c npm run dev", 0, false >> temp_run.vbs
+wscript.exe temp_run.vbs
+del temp_run.vbs
+
+echo [OK] May chu da duoc kich hoat ngam thanh cong!
+echo Cua so CMD nay se tu dong dong lap tuc de giu sach man hinh cua ban.
+timeout /t 1 >nul
 exit
 
 :NO_NODE

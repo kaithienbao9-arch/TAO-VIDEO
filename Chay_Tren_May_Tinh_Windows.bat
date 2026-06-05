@@ -48,9 +48,16 @@ echo APP_URL="http://localhost:3000" >> .env
 :: Mo ung dung duoi dang cua so doc lap (App Mode), loai bo hoan toan thanh dia chi va tab de giong phan mem Desktop
 start chrome --app=http://localhost:3000
 
-:: Khởi chạy môi trường Dev
-call npm run dev
-goto END
+:: Chay may chu ngam hoan toan bang VBScript (An hoan toan khoi man hinh va thanh Taskbar)
+echo Set WshShell = CreateObject("WScript.Shell") > temp_run.vbs
+echo WshShell.Run "cmd.exe /c npm run dev", 0, false >> temp_run.vbs
+wscript.exe temp_run.vbs
+del temp_run.vbs
+
+echo [OK] May chu da duoc kich hoat ngam thanh cong!
+echo Cua so CMD nay se tu dong dong lap tuc de giu sach man hinh cua ban.
+timeout /t 1 >nul
+exit
 
 :NO_NODE
 echo [CANH BAO] Khong tim thay Node.js tren may tinh cua ban!
