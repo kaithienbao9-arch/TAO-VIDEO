@@ -1,5 +1,5 @@
 @echo off
-title KHOI DONG CREATOR VIDEO PRO - V-SYNC ENGINE
+title KHOI DONG CREATOR VIDEO PRO - V-SYNC ENGINE (EDGE)
 cls
 
 echo ====================================================================
@@ -35,8 +35,8 @@ echo.
 :NODE_MODULES_OK
 
 echo [OK] Tat ca moi thu da san sang!
-echo Dang khoi dong may chu cuc bo (Local Server) tren may tinh cua ban...
-echo Ung dung se tu dong mo trong trinh duyet Chrome / Edge cua ban sau it giay...
+echo Dang khoi dong may chu lam viec o che do an/thu nho (Background/Minimized Server)...
+echo Ung dung se tu dong mo trong trinh duyet Microsoft Edge sau it giay...
 echo.
 
 :: Tu dong tao file .env neu chua co de luu API Key mac dinh
@@ -45,12 +45,14 @@ echo GEMINI_API_KEY="Cau hinh khoa goi y tu khoa cua ban tai day" > .env
 echo APP_URL="http://localhost:3000" >> .env
 :ENV_OK
 
-:: Mo ung dung duoi dang cua so doc lap (App Mode), loai bo hoan toan thanh dia chi va tab de giong phan mem Desktop
-start chrome --app=http://localhost:3000
+:: Mo phan mem bang Microsoft Edge o che do cua so doc lap (App Mode), loai bo hoan toan cac thanh dung cu, dia chi va tab
+start msedge --app=http://localhost:3000
 
-:: Khởi chạy môi trường Dev
-call npm run dev
-goto END
+:: Khoi chay moi truong Dev o che do thu nho va tu dong thoat cua so hien tai
+start "" /min cmd /c "npm run dev"
+echo [OK] May chu da duoc khoi chay an. Cua so CMD nay se tu dong dong lai bay gio!
+timeout /t 3 >nul
+exit
 
 :NO_NODE
 echo [CANH BAO] Khong tim thay Node.js tren may tinh cua ban!
@@ -73,6 +75,3 @@ echo [LOI] Qua trinh cai dat thu vien that bai!
 echo Vui long kiem tra lai ket noi mang hoac thu chay lenh "npm install" thu cong tu Command Prompt thu muc nay.
 pause
 exit
-
-:END
-pause
