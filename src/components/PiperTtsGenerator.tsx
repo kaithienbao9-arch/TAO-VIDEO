@@ -573,9 +573,9 @@ curl -L -o "${selectedVoice.modelName}.json" "${selectedVoice.jsonUrl}"
 :RUN_TTS
 echo.
 echo [*] System is ready!
-echo [*] Launching TTS engine using: %%RUNNER%% %%RUN_SCRIPT%%
+echo [*] Launching TTS engine using: %RUNNER% %RUN_SCRIPT%
 echo -------------------------------------------------------------
-%%RUNNER%% %%RUN_SCRIPT%%
+%RUNNER% %RUN_SCRIPT%
 echo -------------------------------------------------------------
 echo.
 echo [SUCCESS] Done! Your audio (giong_doc.wav) and subtitles (phu_de.srt) are ready.
