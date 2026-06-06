@@ -1,5 +1,6 @@
 @echo off
 title KHOI DONG CREATOR VIDEO PRO - V-SYNC ENGINE (EDGE)
+cd /d "%~dp0"
 cls
 
 echo ====================================================================
@@ -33,6 +34,11 @@ echo [OK] Cai dat thu vien thanh cong!
 echo.
 
 :NODE_MODULES_OK
+
+:: Tu dong tim va tat phien ban dang chay ngam truoc do de giai phong bo nho va tranh xung dot cong 3000
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3000') do (
+    taskkill /f /pid %%a >nul 2>&1
+)
 
 echo [OK] Tat ca moi thu da san sang!
 echo Dang khoi dong may chu lam viec o che do an/thu nho (Background/Minimized Server)...

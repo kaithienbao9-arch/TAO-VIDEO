@@ -13,6 +13,7 @@ import VideoExporter from './components/VideoExporter';
 import SettingsModal from './components/SettingsModal';
 import KhoAnhModal from './components/KhoAnhModal';
 import MissingCharacterImagesModal from './components/MissingCharacterImagesModal';
+import PiperTtsGenerator from './components/PiperTtsGenerator';
 import { 
   getAllImagesFromDB, 
   saveImagesToDB, 
@@ -176,7 +177,7 @@ export default function App() {
   }, [presets]);
 
   const [previewTime, setPreviewTime] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'create' | 'guide'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'guide' | 'tts'>('create');
   
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isKhoAnhOpen, setIsKhoAnhOpen] = useState(false);
@@ -1034,7 +1035,7 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex gap-2 bg-white/5 p-1 rounded-lg border border-white/10 text-xs">
+            <div className="flex gap-1.5 bg-white/5 p-1 rounded-lg border border-white/10 text-xs text-center items-center justify-center">
               <button
                 type="button"
                 onClick={() => setActiveTab('create')}
@@ -1043,6 +1044,15 @@ export default function App() {
                 }`}
               >
                 Chế độ Tạo Video
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('tts')}
+                className={`px-3 py-1.5 rounded-md transition-all font-medium ${
+                  activeTab === 'tts' ? 'bg-blue-600 text-white shadow font-semibold' : 'text-white/40 hover:text-white'
+                }`}
+              >
+                Công cụ Piper TTS (Offline)
               </button>
               <button
                 type="button"
@@ -1231,6 +1241,8 @@ export default function App() {
             )}
 
           </div>
+        ) : activeTab === 'tts' ? (
+          <PiperTtsGenerator />
         ) : (
           /* Detailed Multi-step Vietnamese instructions guide context block */
           <div className="bg-[#0E0E11] border border-white/10 rounded-2xl p-8 max-w-3xl mx-auto shadow-2xl font-sans text-white/80 space-y-6">
