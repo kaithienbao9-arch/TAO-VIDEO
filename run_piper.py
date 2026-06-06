@@ -11,6 +11,23 @@ VOICE_ID = "vi-VN-HoaiMyNeural"  # Giọng nữ Miền Nam truyền cảm chất
 SPEED_RATE = "+0%"
 SILENCE_GAP = 0.3  # Khoảng lặng nghỉ giữa mỗi câu (giây)
 
+# --- THAY THẾ BẰNG THAM SỐ DÒNG LỆNH NẾU ĐƯỢC CHUYỂN VÀO ---
+if len(sys.argv) > 1:
+    arg_voice = sys.argv[1].strip()
+    if arg_voice:
+        VOICE_ID = arg_voice
+
+if len(sys.argv) > 2:
+    arg_speed = sys.argv[2].strip()
+    if arg_speed:
+        SPEED_RATE = arg_speed
+
+if len(sys.argv) > 3:
+    try:
+        SILENCE_GAP = float(sys.argv[3])
+    except Exception:
+        pass
+
 # --- TỰ ĐỘNG THIẾT LẬP THƯ VIỆN EDGE-TTS ---
 try:
     import edge_tts

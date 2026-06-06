@@ -80,6 +80,22 @@ const EDGE_VOICES: EdgeVoice[] = [
     accent: 'Anh Quốc (UK)',
     voiceId: 'en-GB-SoniaNeural',
     description: 'Giọng nữ Anh sang trọng, quý phái, chuẩn âm điệu hoàng gia, tuyệt vời cho các nội dung lịch lãm.'
+  },
+  {
+    id: 'it_it_elsa',
+    name: 'Elsa (it-IT)',
+    gender: 'Nữ',
+    accent: 'Ý (Italy)',
+    voiceId: 'it-IT-ElsaNeural',
+    description: 'Giọng nữ tiếng Ý thanh thoát, sang trọng, uyển chuyển, phù hợp cho du lịch, ẩm thực, và thời trang Ý.'
+  },
+  {
+    id: 'it_it_diego',
+    name: 'Diego (it-IT)',
+    gender: 'Nam',
+    accent: 'Ý (Italy)',
+    voiceId: 'it-IT-DiegoNeural',
+    description: 'Giọng nam tiếng Ý đĩnh đạc, nam tính, trầm ấm, thích hợp cho tài liệu, giới thiệu địa danh và bài giảng.'
   }
 ];
 
@@ -249,6 +265,23 @@ OUTPUT_SRT = "phu_de.srt"
 VOICE_ID = "${selectedVoice.voiceId}"
 SPEED_RATE = "${getRateString()}"
 SILENCE_GAP = ${silenceGap}  # Khoảng lặng nghỉ giữa mỗi câu (giây)
+
+# --- THAY THẾ BẰNG THAM SỐ DÒNG LỆNH NẾU ĐƯỢC CHUYỂN VÀO ---
+if len(sys.argv) > 1:
+    arg_voice = sys.argv[1].strip()
+    if arg_voice:
+        VOICE_ID = arg_voice
+
+if len(sys.argv) > 2:
+    arg_speed = sys.argv[2].strip()
+    if arg_speed:
+        SPEED_RATE = arg_speed
+
+if len(sys.argv) > 3:
+    try:
+        SILENCE_GAP = float(sys.argv[3])
+    except Exception:
+        pass
 
 # --- TỰ ĐỘNG KIỂM TRA & CÀI ĐẶT THƯ VIỆN CHUYÊN DỤNG EDGE-TTS ---
 try:
@@ -478,13 +511,16 @@ pyProcess.on("close", (code) => {
   };
 
   // Generate Batch file loader
-  const getBatchScript = (): string => {
+  const getBatchScript = (voiceId?: string, voiceName?: string): string => {
+    const targetVoice = voiceId || selectedVoice.voiceId;
+    const targetName = voiceName || selectedVoice.name;
+    const rateString = getRateString();
     return `@echo off
 cd /d "%~dp0"
-title Edge-TTS Automatic Generator - V-Sync Engine
+title Edge-TTS Automatic Generator [${targetName}] - V-Sync Engine
 cls
 echo =======================================================================
-echo          AUTOMATIC MICROSOFT EDGE-TTS GENERATOR TOOLKIT
+echo          AUTOMATIC MICROSOFT EDGE-TTS (VOICE: ${targetName})
 echo                     Powered by V-Sync Engine
 echo =======================================================================
 echo.
@@ -498,7 +534,7 @@ if %errorlevel% neq 0 (
     echo 1. Hãy tải và cài đặt Python từ website chính thức:
     echo    https://www.python.org/downloads/
     echo 2. Cực kỳ quan trọng: Nhớ TÍCH CHỌN "Add Python to PATH" khi cài đặt!
-    echo 3. Nhấp đúp lại file "chay_tts.bat" này để chạy lại.
+    echo 3. Nhấp đúp lại file này để chạy lại.
     echo.
     echo ----------------------------------------------------------------------
     echo Ưu điểm lớn nhất của Edge-TTS là miễn phí, không cần bất kỳ API Key nào,
@@ -509,8 +545,8 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-echo [*] Đang kiểm tra thư viện 'edge-tts' và kích hoạt giọng nói...
-python run_edge_tts.py
+echo [*] Đang kiểm tra thư viện 'edge-tts' và kích hoạt giọng nói [${targetName}]...
+python run_edge_tts.py "${targetVoice}" "${rateString}" ${silenceGap}
 
 if %errorlevel% equ 0 (
     echo.
@@ -989,6 +1025,46 @@ Mỗi dòng viết xuống sẽ trở thành 1 phân cảnh srt có mốc thời
                 </div>
               </div>
 
+              {/* Dynamic Multiple Voice BAT Downloader Grid */}
+              {activeCodeTab === 'run_bat' && (
+                <div className="p-4 bg-zinc-950/60 border-b border-white/5 space-y-3 font-sans">
+                  <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                    <Terminal size={12} />
+                    <span>📥 ĐẮT LỰC: Tải nhanh file BAT thiết lập sẵn cho từng giọng nói:</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {EDGE_VOICES.map((v) => {
+                      let fileNameStr = "chay_tts.bat";
+                      if (v.voiceId.startsWith("vi-")) {
+                        fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_mien_${v.accent.includes("Nam") ? "nam" : "bac"}_${v.name.split(' ')[0]}.bat`;
+                      } else if (v.voiceId.startsWith("en-")) {
+                        fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_tieng_anh_${v.name.split(' ')[0]}.bat`;
+                      } else if (v.voiceId.startsWith("it-")) {
+                        fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_tieng_y_${v.name.split(' ')[0]}.bat`;
+                      }
+                      
+                      return (
+                        <button
+                          key={v.id}
+                          onClick={() => handleDownload(getBatchScript(v.voiceId, v.name), fileNameStr)}
+                          className="flex items-center justify-between p-2.5 bg-white/5 hover:bg-emerald-600/15 hover:border-emerald-500/40 border border-white/5 rounded-xl text-left text-[10px] text-white transition-all font-semibold active:scale-95 group cursor-pointer"
+                          title={`Tải xuống file BAT chạy giọng ${v.name}`}
+                        >
+                          <div className="truncate pr-1">
+                            <span className="font-bold block truncate text-slate-200 group-hover:text-emerald-400">{v.name}</span>
+                            <span className="text-[8.5px] text-white/45 block truncate leading-tight">{v.accent} ({v.gender})</span>
+                          </div>
+                          <Download size={11} className="text-white/30 group-hover:text-emerald-400 shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[9.5px] text-white/35 leading-relaxed font-medium">
+                    * Bạn có thể tải nhiều tệp BAT tương ứng với từng giọng đọc khác nhau về lưu chung 1 thư mục. Khi muốn đổi giọng, bạn chỉ cần mở file .txt sửa nội dung rồi kích đúp chọn file BAT tương ứng để xuất giọng phù hợp!
+                  </p>
+                </div>
+              )}
+
               {/* Step-by-step instructions details */}
               <div className="p-6 bg-emerald-950/5 border-t border-white/5 space-y-4">
                 <span className="text-xs font-bold text-white flex items-center gap-2 font-sans">
@@ -1003,17 +1079,17 @@ Mỗi dòng viết xuống sẽ trở thành 1 phân cảnh srt có mốc thời
                       <span className="text-[11px] font-bold text-slate-200">Gom chung 1 Folder</span>
                     </div>
                     <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                      Tạo một thư mục mới trên máy tính của bạn (Vd: <code className="bg-zinc-900 text-white/60 px-1 py-0.2 rounded font-mono text-[9px]">D:\Edge_TTS</code>). Tải toàn bộ 3 tệp tin mã nguồn ở các tab trên lưu vào thư mục này.
+                      Tạo một thư mục mới trên máy tính của bạn (Vd: <code className="bg-zinc-900 text-white/60 px-1 py-0.2 rounded font-mono text-[9px]">D:\Edge_TTS</code>). Tải tệp tin chính <strong className="text-yellow-400 font-mono">run_edge_tts.py</strong> và bất kỳ tệp <strong className="text-emerald-400 font-mono">.bat</strong> giọng đọc nào bạn muốn sử dụng ở trên về cùng thư mục này.
                     </p>
                   </div>
 
                   <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
                     <div className="flex items-center gap-1.5">
                       <span className="w-4 h-4 bg-yellow-500/10 text-yellow-500 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">2</span>
-                      <span className="text-[11px] font-bold text-slate-200">Kích hoạt chay_tts.bat</span>
+                      <span className="text-[11px] font-bold text-slate-200">Sửa văn bản &amp; Kích hoạt BAT</span>
                     </div>
                     <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                      Kích đúp chuột trái vào tệp <strong className="text-emerald-400 font-bold">chay_tts.bat</strong>. File này sẽ tự động cài đặt thư viện python nếu chưa có và bắt đầu liên kết lấy audio thuyết minh chỉ trong 3 giây!
+                      Tạo hoặc tải tệp <strong className="text-rose-400">van_ban_phu_de.txt</strong> lưu vào thư mục. Sửa nội dung tiếng Việt, Anh, Ý... sau đó chỉ cần kích đúp chuột trái vào tệp tệp tin <strong className="text-emerald-400 font-bold">BAT của giọng đọc tương ứng</strong> để tự động tạo audio giọng đọc chất lượng cao!
                     </p>
                   </div>
 
@@ -1023,7 +1099,7 @@ Mỗi dòng viết xuống sẽ trở thành 1 phân cảnh srt có mốc thời
                       <span className="text-[11px] font-bold text-slate-200">Nạp lại vào V-Sync</span>
                     </div>
                     <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                      Ngay khi chạy xong, trong thư mục sẽ xuất hiện tự động hai file <strong className="text-lime-400 font-mono">giong_doc.mp3</strong> và <strong className="text-indigo-400 font-mono">phu_de.srt</strong>. Bạn kéo nạp ngược lại website là hoàn tất!
+                      Ngay khi chạy xong, trong thư mục sẽ xuất hiện tự động hai file <strong className="text-lime-400 font-mono">giong_doc.mp3</strong> và <strong className="text-indigo-400 font-mono">phu_de.srt</strong>. Bạn kéo nạp ngược lại website để tự động phát khớp video bối cảnh!
                     </p>
                   </div>
                 </div>
