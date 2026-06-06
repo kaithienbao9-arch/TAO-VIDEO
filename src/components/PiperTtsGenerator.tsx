@@ -478,61 +478,74 @@ if __name__ == "__main__":
   // Generate batch file setup
   const getBatchScript = (): string => {
     return `@echo off
-chcp 65001 > nul
-title Bộ công cụ Piper Offline TTS - V-Sync Engine
+title Piper Offline TTS Toolkit - V-Sync Engine
 cls
 echo =======================================================================
-echo          BỘ CÔNG CỤ TỰ ĐỘNG CHUYỂN ĐỔI GIỌNG ĐỌC PIPER (OFFLINE)
-echo                        Đơn vị cung cấp: V-Sync
+echo          AUTOMATIC PIPER OFFLINE TTS TOOLKIT
+echo                        Powered by V-Sync
 echo =======================================================================
 echo.
 
-:: Kiểm tra xem Python đã được cài đặt trên máy người dùng chưa
+REM 1. Check Node.js runtime environment (highly recommended)
+where node >nul 2>nul
+if %errorlevel% equ 0 set "RUNNER=node"
+if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.js"
+if %errorlevel% equ 0 goto DOWNLOAD_ENGINES
+
+REM 2. Check Python runtime environment as fallback
 where python >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [LƯU Ý] Hệ thống không tìm thấy lệnh 'python'. 
-    echo Bạn vui lòng tải và cài đặt Python từ https://www.python.org/downloads/
-    echo Đừng quên TÍCH CHỌN ô "Add Python to PATH" lúc cài đặt nhé!
-    echo.
-    pause
-    exit /b
-)
+if %errorlevel% equ 0 set "RUNNER=python"
+if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.py"
+if %errorlevel% equ 0 goto DOWNLOAD_ENGINES
 
-:: Kiểm tra xem piper.exe đã có sẵn chưa, nếu chưa sẽ tự động tải bản Windows AMD64 chính thức
-if not exist "piper.exe" (
-    if not exist "piper\\piper.exe" (
-        echo [*] Đang tải xuống Trình sinh âm thanh Piper TTS (Windows AMD64)...
-        curl -L -o piper_win.zip "https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_windows_amd64.zip"
-        
-        echo [*] Đang giải nén Piper qua Powershell...
-        powershell -Command "Expand-Archive -Path 'piper_win.zip' -DestinationPath 'piper_temp'"
-        
-        echo [*] Di chuyển tệp tin ra thư mục hiện hành...
-        move /y "piper_temp\\piper\\*" ".\\"
-        
-        echo [*] Dọn dẹp tệp tin cài đặt tạm...
-        rd /s /q "piper_temp"
-        del piper_win.zip
-    )
-)
-
-:: Tải giọng đọc Tiếng Anh được chỉ định nếu chưa tồn tại cục bộ
-if not exist "${selectedVoice.modelName}" (
-    echo [*] Đang tải về giọng đọc thông minh Tiếng Anh: ${selectedVoice.name} (${selectedVoice.gender} - ${selectedVoice.accent})...
-    echo [!] Kích thước tệp giọng khoảng ~80MB, quá trình này chỉ tải một lần duy nhất.
-    
-    curl -L -o "${selectedVoice.modelName}" "${selectedVoice.onnxUrl}"
-    curl -L -o "${selectedVoice.modelName}.json" "${selectedVoice.jsonUrl}"
-)
-
+REM 3. If neither is found
+echo [WARN] Neither Node.js nor Python was found on your system!
 echo.
-echo [*] Mọi thứ đã chuẩn bị sẵn sàng!
-echo [*] Bắt đầu kích hoạt động cơ python sinh audio và srt...
+echo To run this offline generator, please install one of them:
+echo - Install Node.js (Recommended): https://nodejs.org/
+echo - Or install Python: https://www.python.org/downloads/
+echo   (Make sure to check "Add Python to PATH" during installation)
+echo.
+pause
+exit /b
+
+:DOWNLOAD_ENGINES
+REM Check for piper.exe, download if missing
+if exist "piper.exe" goto CHECK_MODEL
+if exist "piper\\piper.exe" move /y "piper\\*" .
+if exist "piper.exe" goto CHECK_MODEL
+
+echo [*] Downloading Piper TTS Engine (Windows x64)...
+curl -L -o "piper_win.zip" "https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_windows_amd64.zip"
+
+echo [*] Extracting file via Powershell...
+powershell -Command "Expand-Archive -Path 'piper_win.zip' -DestinationPath 'piper_temp'"
+
+echo [*] Moving executable to current directory...
+move /y "piper_temp\\piper\\*" .
+
+echo [*] Cleaning up temp files...
+rd /s /q "piper_temp"
+del /f /q "piper_win.zip"
+
+:CHECK_MODEL
+if exist "${selectedVoice.modelName}" goto RUN_TTS
+
+echo [*] Downloading English Voice Model: ${selectedVoice.name} (${selectedVoice.gender} - ${selectedVoice.accent})...
+echo [!] Size is approx. 80MB. This download happens only once.
+
+curl -L -o "${selectedVoice.modelName}" "${selectedVoice.onnxUrl}"
+curl -L -o "${selectedVoice.modelName}.json" "${selectedVoice.jsonUrl}"
+
+:RUN_TTS
+echo.
+echo [*] System is ready!
+echo [*] Launching TTS engine using: %%RUNNER%% %%RUN_SCRIPT%%
 echo -------------------------------------------------------------
-python run_piper.py
+%%RUNNER%% %%RUN_SCRIPT%%
 echo -------------------------------------------------------------
 echo.
-echo [XONG] Hoàn tất quá trình! Bấm phím bất kỳ để đóng cửa sổ.
+echo [SUCCESS] Done! Your audio (giong_doc.wav) and subtitles (phu_de.srt) are ready.
 pause
 `;
   };

@@ -1,78 +1,70 @@
 @echo off
-chcp 65001 > nul
-title Bộ công cụ Piper Offline TTS - V-Sync Engine
+title Piper Offline TTS Toolkit - V-Sync Engine
 cls
 echo =======================================================================
-echo          BỘ CÔNG CỤ TỰ ĐỘNG CHUYỂN ĐỔI GIỌNG ĐỌC PIPER (OFFLINE)
-echo                        Đơn vị cung cấp: V-Sync
+echo          AUTOMATIC PIPER OFFLINE TTS TOOLKIT
+echo                        Powered by V-Sync
 echo =======================================================================
 echo.
 
-:: 1. Kiểm tra môi trường Node.js (ưu tiên tối thượng vì người chạy web app chắc chắn có Node)
+REM 1. Check Node.js runtime environment (highly recommended)
 where node >nul 2>nul
-if %errorlevel% eq 0 (
-    echo [OK] Phát hiện hệ thống đã cài đặt Node.js!
-    set RUNNER=node
-    set RUN_SCRIPT=run_piper.js
-    goto DOWNLOAD_ENGINES
-)
+if %errorlevel% equ 0 set "RUNNER=node"
+if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.js"
+if %errorlevel% equ 0 goto DOWNLOAD_ENGINES
 
-:: 2. Kiểm tra môi trường Python cũ (phương án phụ phòng hờ)
+REM 2. Check Python runtime environment as fallback
 where python >nul 2>nul
-if %errorlevel% eq 0 (
-    echo [OK] Phát hiện hệ thống đã cài đặt Python!
-    set RUNNER=python
-    set RUN_SCRIPT=run_piper.py
-    goto DOWNLOAD_ENGINES
-)
+if %errorlevel% equ 0 set "RUNNER=python"
+if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.py"
+if %errorlevel% equ 0 goto DOWNLOAD_ENGINES
 
-:: 3. Khi không tìm thấy cả hai
-echo [LƯU Ý] Hệ thống không tìm thấy Node.js lẫn Python!
+REM 3. If neither is found
+echo [WARN] Neither Node.js nor Python was found on your system!
 echo.
-echo Vì bạn đang chạy bộ mã nguồn V-Sync local, đề xuất nhanh nhất:
-echo >> Hãy sử dụng Node.js sẵn có trên máy để chạy.
-echo.
-echo Hoặc bạn có thể tải nhanh Python từ website chính thức:
-echo >> Tải về: https://www.python.org/downloads/
-echo >> Ghi nhớ: TÍCH CHỌN ô "Add Python to PATH" lúc cài đặt để kích hoạt tệp lệnh này!
+echo To run this offline generator, please install one of them:
+echo - Install Node.js (Recommended): https://nodejs.org/
+echo - Or install Python: https://www.python.org/downloads/
+echo   (Make sure to check "Add Python to PATH" during installation)
 echo.
 pause
 exit /b
 
 :DOWNLOAD_ENGINES
-:: Kiểm tra xem piper.exe đã có sẵn chưa, nếu chưa sẽ tự động tải bản Windows AMD64 chính thức
-if not exist "piper.exe" (
-    if not exist "piper\piper.exe" (
-        echo [*] Đang thiết lập Trình sinh âm thanh Piper TTS (Windows AMD64)...
-        curl -L -o piper_win.zip "https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_windows_amd64.zip"
-        
-        echo [*] Đang giải nén Piper thông qua Powershell...
-        powershell -Command "Expand-Archive -Path 'piper_win.zip' -DestinationPath 'piper_temp'"
-        
-        echo [*] Di chuyển tệp tin ra thư mục làm việc...
-        move /y "piper_temp\piper\*" ".\"
-        
-        echo [*] Giải phóng ổ cứng, dọn dẹp thư mục tạm...
-        rd /s /q "piper_temp"
-        del piper_win.zip
-    )
-)
+REM Check for piper.exe, download if missing
+if exist "piper.exe" goto CHECK_MODEL
+if exist "piper\piper.exe" move /y "piper\*" .
+if exist "piper.exe" goto CHECK_MODEL
 
-:: Tải giọng đọc Tiếng Anh được chỉ định nếu chưa tồn tại cục bộ
-if not exist "en_US-amy-medium.onnx" (
-    echo [*] Đang tải về giọng đọc thông minh Tiếng Anh: Amy (US) (Nữ - Mỹ (US))...
-    echo [!] Kích thước tệp giọng khoảng ~80MB, quá trình này chỉ tải một lần duy nhất.
-    
-    curl -L -o "en_US-amy-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx"
-    curl -L -o "en_US-amy-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json"
-)
+echo [*] Downloading Piper TTS Engine (Windows x64)...
+curl -L -o "piper_win.zip" "https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_windows_amd64.zip"
 
+echo [*] Extracting file via Powershell...
+powershell -Command "Expand-Archive -Path 'piper_win.zip' -DestinationPath 'piper_temp'"
+
+echo [*] Moving executable to current directory...
+move /y "piper_temp\piper\*" .
+
+echo [*] Cleaning up temp files...
+rd /s /q "piper_temp"
+del /f /q "piper_win.zip"
+
+:CHECK_MODEL
+if exist "en_US-amy-medium.onnx" goto RUN_TTS
+
+echo [*] Downloading English Voice Model: Amy (US)...
+echo [!] Size is approx. 80MB. This download happens only once.
+
+curl -L -o "en_US-amy-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx"
+curl -L -o "en_US-amy-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/amy/medium/en_US-amy-medium.onnx.json"
+
+:RUN_TTS
 echo.
-echo [*] Mọi thứ đã chuẩn bị sẵn sàng tuyệt đối!
-echo [*] Bắt đầu chạy trình kết xuất bằng: %RUNNER% %RUN_SCRIPT% ...
+echo [*] System is ready!
+echo [*] Launching TTS engine using: %RUNNER% %RUN_SCRIPT%
 echo -------------------------------------------------------------
 %RUNNER% %RUN_SCRIPT%
 echo -------------------------------------------------------------
 echo.
-echo [XONG] Hoàn tất quá trình! File audio và srt đã được kết xuất thành công!
+echo [SUCCESS] Done! Your audio (giong_doc.wav) and subtitles (phu_de.srt) are ready.
 pause
