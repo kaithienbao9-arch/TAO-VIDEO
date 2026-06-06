@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 title Piper Offline TTS Toolkit - V-Sync Engine
 cls
 echo =======================================================================
@@ -10,7 +11,7 @@ echo.
 REM 1. Check Node.js runtime environment (highly recommended)
 where node >nul 2>nul
 if %errorlevel% equ 0 set "RUNNER=node"
-if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.js"
+if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.cjs"
 if %errorlevel% equ 0 goto DOWNLOAD_ENGINES
 
 REM 2. Check Python runtime environment as fallback

@@ -478,6 +478,7 @@ if __name__ == "__main__":
   // Generate batch file setup
   const getBatchScript = (): string => {
     return `@echo off
+cd /d "%~dp0"
 title Piper Offline TTS Toolkit - V-Sync Engine
 cls
 echo =======================================================================
@@ -489,7 +490,7 @@ echo.
 REM 1. Check Node.js runtime environment (highly recommended)
 where node >nul 2>nul
 if %errorlevel% equ 0 set "RUNNER=node"
-if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.js"
+if %errorlevel% equ 0 set "RUN_SCRIPT=run_piper.cjs"
 if %errorlevel% equ 0 goto DOWNLOAD_ENGINES
 
 REM 2. Check Python runtime environment as fallback
@@ -610,7 +611,7 @@ pause
       case 'run_js':
         return {
           code: getNodeScript(),
-          filename: 'run_piper.js',
+          filename: 'run_piper.cjs',
           lang: 'javascript'
         };
       case 'run_py':
@@ -799,7 +800,7 @@ Mỗi dòng viết xuống sẽ trở thành 1 mốc phụ đề hoàn hảo kh�
                   }`}
                 >
                   <Cpu size={11} />
-                  <span>2. run_piper.js (Node JS ✨)</span>
+                  <span>2. run_piper.cjs (Node JS ✨)</span>
                 </button>
                 <button
                   onClick={() => setActiveCodeTab('run_py')}

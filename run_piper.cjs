@@ -12,11 +12,11 @@ const SILENCE_GAP = 0.3; // Khoảng lặng nghỉ giữa mỗi câu (giây)
 const LENGTH_SCALE = 1.0; // Tốc độ nói (nhỏ hơn là nói nhanh hơn)
 
 // Cấu hình chuẩn Audio PCM của Piper
-const SAMPLE_RATE = 22050;
+const SAMPLE_RATE_VAL = 22050; 
 const CHANNELS = 1;
 const BITS_PER_SAMPLE = 16;
 const BYTES_PER_SAMPLE = BITS_PER_SAMPLE / 8;
-const BYTES_PER_SECOND = SAMPLE_RATE * CHANNELS * BYTES_PER_SAMPLE;
+const BYTES_PER_SECOND = SAMPLE_RATE_VAL * CHANNELS * BYTES_PER_SAMPLE;
 
 function createWavHeader(dataLength) {
   const buffer = Buffer.alloc(44);
@@ -27,7 +27,7 @@ function createWavHeader(dataLength) {
   buffer.writeUInt32LE(16, 16);
   buffer.writeUInt16LE(1, 20); // PCM Format
   buffer.writeUInt16LE(CHANNELS, 22);
-  buffer.writeUInt32LE(SAMPLE_RATE, 24);
+  buffer.writeUInt32LE(SAMPLE_RATE_VAL, 24);
   buffer.writeUInt32LE(BYTES_PER_SECOND, 28);
   buffer.writeUInt16LE(CHANNELS * BYTES_PER_SAMPLE, 32);
   buffer.writeUInt16LE(BITS_PER_SAMPLE, 34);
@@ -85,7 +85,7 @@ function main() {
     return;
   }
 
-  console.log(`[*] Phát hiện cấu trúc ${lines.length} câu thuyết minh...`);
+  console.log(`[*] Phát hiện cấu trúc ${lines.length} câu thuyết minh...\n`);
 
   const tempDir = "temp_audiolink";
   if (!fs.existsSync(tempDir)) {
@@ -97,7 +97,7 @@ function main() {
   let currentTime = 0.0;
 
   // Tạo đệm cho khoảng nghỉ lặng
-  const silenceSamples = Math.floor(SAMPLE_RATE * SILENCE_GAP);
+  const silenceSamples = Math.floor(SAMPLE_RATE_VAL * SILENCE_GAP);
   const silenceBuffer = Buffer.alloc(silenceSamples * CHANNELS * BYTES_PER_SAMPLE);
 
   try {
