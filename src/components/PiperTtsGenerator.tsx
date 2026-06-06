@@ -208,20 +208,29 @@ function main() {
       const previewText = sentence.length > 30 ? sentence.slice(0, 30) + "..." : sentence;
       console.log(\` -> [\${idx}/\${lines.length}] Đang nói: "\${previewText}"\`);
 
-      const partWav = path.join(tempDir, \`part_\${String(idx).padStart(4, '0')}.wav\`);
+      const partWav = path.resolve(tempDir, \`part_\${String(idx).padStart(4, '0')}.wav\`);
+      const absolutePiperPath = path.resolve(piperPath);
+      const absoluteModelPath = path.resolve(PIPER_MODEL);
 
       // Khởi động subprocess Piper để đọc câu thoại
-      const result = spawnSync(piperPath, [
-        "--model", PIPER_MODEL,
+      const result = spawnSync(absolutePiperPath, [
+        "--model", absoluteModelPath,
         "--length_scale", String(LENGTH_SCALE),
         "--output_file", partWav
       ], {
         input: sentence,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
+        cwd: process.cwd()
       });
 
       if (result.status !== 0 || !fs.existsSync(partWav)) {
         console.error(\` [LỖI GIỌNG] Không thể kết xuất câu số \${idx}.\`);
+        if (result.error) {
+          console.error("   - Lỗi Hệ Thống:", result.error.message);
+        }
+        if (result.stderr) {
+          console.error("   - Lỗi Piper:", result.stderr.trim());
+        }
         continue;
       }
 
