@@ -1052,7 +1052,7 @@ export default function App() {
                   activeTab === 'tts' ? 'bg-blue-600 text-white shadow font-semibold' : 'text-white/40 hover:text-white'
                 }`}
               >
-                Công cụ Piper TTS (Offline)
+                Giọng lọc Edge-TTS (Miễn phí)
               </button>
               <button
                 type="button"
