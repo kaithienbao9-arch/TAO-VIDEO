@@ -356,7 +356,31 @@ async def async_main():
             print(f" -> [{idx}/{len(lines)}] Đang thuyết minh AI: \\"{preview}\\"")
             
             # 1. Tạo audio tiếng nói cho câu
-            part_path, duration = await generate_speech_chunk(sentence, VOICE_ID, SPEED_RATE, idx, temp_dir)
+            try:
+                part_path, duration = await generate_speech_chunk(sentence, VOICE_ID, SPEED_RATE, idx, temp_dir)
+            except Exception as e:
+                # Nếu không nhận được audio, khả năng cao là do thư viện edge-tts đã cũ bị Microsoft từ chối kết nối
+                if "NoAudioReceived" in str(type(e)) or "NoAudioReceived" in str(e):
+                    print("\\n[!] Cảnh báo: Không lấy được giọng thuyết minh từ Microsoft (Lỗi NoAudioReceived).")
+                    print("[*] Có thể thư viện 'edge-tts' trên máy tính của bạn đã cũ (Outdated).")
+                    print("[*] Đang tự động nâng cấp 'edge-tts' lên phiên bản mới nhất từ Internet...")
+                    import subprocess
+                    try:
+                        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "edge-tts"])
+                        print("[+] Đã tự động nâng cấp thư viện thành công! Đang thử khởi động lại phân cảnh...")
+                        import importlib
+                        importlib.reload(edge_tts)
+                        # Thử lại một lần nữa
+                        part_path, duration = await generate_speech_chunk(sentence, VOICE_ID, SPEED_RATE, idx, temp_dir)
+                    except Exception as re_err:
+                        print(f"[!] Cài đặt tự động thất bại hoặc vẫn gặp lỗi: {re_err}")
+                        print("[QUAN TRỌNG] Vui lòng mở Command Prompt (CMD) trên Windows và chạy lệnh:")
+                        print("  pip install --upgrade edge-tts")
+                        print("Sau đó chạy lại file chay_tts.bat để sửa lỗi hoàn toàn.")
+                        raise e
+                else:
+                    raise e
+
             if not part_path:
                 print(f" [!] Lỗi khi tạo tiếng câu số {idx}, bỏ qua.")
                 continue

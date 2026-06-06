@@ -114,7 +114,31 @@ async def async_main():
             print(f" -> [{idx}/{len(lines)}] Dang chay Thuyet minh AI: \"{preview}\"")
             
             # 1. Chuyển ngữ giọng đọc
-            part_path, duration = await generate_speech_chunk(sentence, VOICE_ID, SPEED_RATE, idx, temp_dir)
+            try:
+                part_path, duration = await generate_speech_chunk(sentence, VOICE_ID, SPEED_RATE, idx, temp_dir)
+            except Exception as e:
+                # Nếu không nhận được audio, khả năng cao là do thư viện edge-tts đã cũ bị Microsoft từ chối kết nối
+                if "NoAudioReceived" in str(type(e)) or "NoAudioReceived" in str(e):
+                    print("\n[!] Canh bao: Khong lay duoc giong doc tu Microsoft (Loi NoAudioReceived).")
+                    print("[*] Co the thu vien 'edge-tts' tren may tinh cua ban da cu (Outdated).")
+                    print("[*] Dang tu dong nang cap 'edge-tts' len phien ban moi nhat tu Internet...")
+                    import subprocess
+                    try:
+                        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "edge-tts"])
+                        print("[+] Da tu dong nang cap thu vien thanh cong! Dang khoi dong lai lua chon...")
+                        import importlib
+                        importlib.reload(edge_tts)
+                        # Thu lai mot lan nua
+                        part_path, duration = await generate_speech_chunk(sentence, VOICE_ID, SPEED_RATE, idx, temp_dir)
+                    except Exception as re_err:
+                        print(f"[!] Cai dat tu dong that bai hoac van gap loi: {re_err}")
+                        print("[QUAN TRONG] Vui long mo Command Prompt (CMD) tren Windows va chay lenh:")
+                        print("  pip install --upgrade edge-tts")
+                        print("Sau do chay lai file chay_tts.bat de sua loi hoan toan.")
+                        raise e
+                else:
+                    raise e
+
             if not part_path:
                 print(f" [!] Gap su co khi ket xuat cau so {idx}, bỏ qua.")
                 continue
