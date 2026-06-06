@@ -1242,7 +1242,13 @@ export default function App() {
 
           </div>
         ) : activeTab === 'tts' ? (
-          <PiperTtsGenerator />
+          <PiperTtsGenerator 
+            onAudioAndSubtitlesGenerated={(audioFile, srtFile, blocks, duration) => {
+              handleAudioLoaded(audioFile, duration);
+              handleSubtitlesLoaded(srtFile, blocks);
+              setActiveTab('create');
+            }}
+          />
         ) : (
           /* Detailed Multi-step Vietnamese instructions guide context block */
           <div className="bg-[#0E0E11] border border-white/10 rounded-2xl p-8 max-w-3xl mx-auto shadow-2xl font-sans text-white/80 space-y-6">

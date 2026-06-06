@@ -15,8 +15,13 @@ import {
   Cpu,
   Mic,
   Settings,
-  Languages
+  Languages,
+  Play,
+  Pause,
+  CloudLightning,
+  AlertCircle
 } from 'lucide-react';
+import { parseSRT } from '../utils/srtParser';
 
 interface EdgeVoice {
   id: string;
@@ -86,12 +91,28 @@ Sau đó tải bộ công cụ này về máy tính và chạy duy nhất một 
 Tất cả các cảnh bối cảnh bento-grid và phụ đề sẽ tự động ăn khớp lẫn nhau.
 Chúc bạn xây dựng được những clip triệu view chất lượng hàng đầu nhé!`;
 
-export default function PiperTtsGenerator() {
+interface PiperTtsGeneratorProps {
+  onAudioAndSubtitlesGenerated?: (audioFile: File, srtFile: File, parsedBlocks: any[], audioDuration: number) => void;
+}
+
+export default function PiperTtsGenerator({ onAudioAndSubtitlesGenerated }: PiperTtsGeneratorProps) {
   const [text, setText] = useState<string>(DEFAULT_SAMPLE_TEXT);
   const [selectedVoice, setSelectedVoice] = useState<EdgeVoice>(EDGE_VOICES[0]);
   const [speed, setSpeed] = useState<number>(1.0); 
   const [silenceGap, setSilenceGap] = useState<number>(0.3); // seconds of pause between lines
   
+  // Tab generation mode (online default vs offline instructions)
+  const [generationMode, setGenerationMode] = useState<'online' | 'offline'>('online');
+  
+  // Online generation states
+  const [isGeneratingOnline, setIsGeneratingOnline] = useState<boolean>(false);
+  const [onlineAudioUrl, setOnlineAudioUrl] = useState<string | null>(null);
+  const [onlineSrtContent, setOnlineSrtContent] = useState<string | null>(null);
+  const [onlineError, setOnlineError] = useState<string | null>(null);
+  const [onlineSuccess, setOnlineSuccess] = useState<boolean>(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [audioPreviewElement, setAudioPreviewElement] = useState<HTMLAudioElement | null>(null);
+
   // Script file tabs visibility states
   const [activeCodeTab, setActiveCodeTab] = useState<'run_py' | 'run_js' | 'run_bat' | 'text_txt'>('run_bat');
   const [copiedState, setCopiedState] = useState<Record<string, boolean>>({});
@@ -108,6 +129,110 @@ export default function PiperTtsGenerator() {
   const getRateString = (): string => {
     const percent = Math.round((speed - 1.0) * 100);
     return percent >= 0 ? `+${percent}%` : `${percent}%`;
+  };
+
+  const handleOnlineGenerate = async () => {
+    const lines = getLines();
+    if (lines.length === 0) {
+      setOnlineError('Nội dung kịch bản trống. Vui lòng nhập ít nhất một dòng.');
+      return;
+    }
+
+    setIsGeneratingOnline(true);
+    setOnlineError(null);
+    setOnlineSuccess(false);
+    setOnlineAudioUrl(null);
+    setOnlineSrtContent(null);
+    setIsPlayingAudio(false);
+    if (audioPreviewElement) {
+      audioPreviewElement.pause();
+      setAudioPreviewElement(null);
+    }
+
+    try {
+      const response = await fetch('/api/tts/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lines,
+          voice: selectedVoice.voiceId,
+          speed,
+          silenceGap
+        })
+      });
+
+      const res = await response.json();
+
+      if (!response.ok || !res.success) {
+        throw new Error(res.error || 'Không thể kết xuất giọng nói từ máy chủ.');
+      }
+
+      setOnlineAudioUrl(res.audioUrl);
+      setOnlineSrtContent(res.srtContent);
+      setOnlineSuccess(true);
+    } catch (err: any) {
+      console.error('Lỗi tts online:', err);
+      setOnlineError(err.message || 'Lỗi mạng hoặc hệ thống không kết nối được.');
+    } finally {
+      setIsGeneratingOnline(false);
+    }
+  };
+
+  const handleApplyToProject = async () => {
+    if (!onlineAudioUrl || !onlineSrtContent || !onAudioAndSubtitlesGenerated) return;
+
+    try {
+      // 1. Convert base64 dataUrl back to a File
+      const response = await fetch(onlineAudioUrl);
+      const blob = await response.blob();
+      const audioFile = new File([blob], 'giong_doc.mp3', { type: 'audio/mp3' });
+
+      // 2. Convert SRT string to a File
+      const srtBlob = new Blob([onlineSrtContent], { type: 'text/plain;charset=utf-8' });
+      const srtFile = new File([srtBlob], 'phu_de.srt', { type: 'text/plain;charset=utf-8' });
+
+      // 3. Parse SRT content to get blocks
+      const parsedBlocks = parseSRT(onlineSrtContent);
+
+      // 4. Determine total duration
+      let totalDuration = 0;
+      if (parsedBlocks.length > 0) {
+        totalDuration = parsedBlocks[parsedBlocks.length - 1].endTime;
+      }
+
+      onAudioAndSubtitlesGenerated(audioFile, srtFile, parsedBlocks, totalDuration);
+    } catch (err) {
+      console.error('Lỗi khi áp dụng vào dự án:', err);
+      setOnlineError('Lỗi dọn nạp tự động: ' + (err as Error).message);
+    }
+  };
+
+  const handleTogglePlayPreview = () => {
+    if (!onlineAudioUrl) return;
+
+    if (isPlayingAudio && audioPreviewElement) {
+      audioPreviewElement.pause();
+      setIsPlayingAudio(false);
+    } else {
+      if (audioPreviewElement) {
+         audioPreviewElement.currentTime = 0;
+         audioPreviewElement.play();
+         setIsPlayingAudio(true);
+      } else {
+        const audio = new Audio(onlineAudioUrl);
+        audio.onended = () => {
+          setIsPlayingAudio(false);
+        };
+        audio.play().then(() => {
+          setAudioPreviewElement(audio);
+          setIsPlayingAudio(true);
+        }).catch(err => {
+          console.error("Lỗi phát audio:", err);
+        });
+      }
+    }
   };
 
   // Generate Python script for Edge-TTS
@@ -577,138 +702,317 @@ Mỗi dòng viết xuống sẽ trở thành 1 phân cảnh srt có mốc thời
           </div>
         </div>
 
-        {/* Right Column: Code viewer & Detailed instructions */}
+        {/* Right Column: Mode selector, Online render panel, or Code viewer */}
         <div className="lg:col-span-7 space-y-6">
-          <div className="bg-[#0E0E12] border border-white/10 rounded-2xl shadow-xl flex flex-col overflow-hidden">
-            
-             {/* Header tab controller */}
-            <div className="bg-zinc-950 p-4 border-b border-white/5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-              <div className="flex gap-1.5 bg-white/5 p-1 rounded-lg border border-white/10 text-xs flex-wrap">
-                <button
-                  onClick={() => setActiveCodeTab('run_bat')}
-                  className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
-                    activeCodeTab === 'run_bat' ? 'bg-zinc-800 text-emerald-400 shadow border border-white/5' : 'text-white/40 hover:text-white'
-                  }`}
-                >
-                  <Terminal size={11} />
-                  <span>1. chay_tts.bat</span>
-                </button>
-                <button
-                  onClick={() => setActiveCodeTab('run_py')}
-                  className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
-                    activeCodeTab === 'run_py' ? 'bg-zinc-800 text-yellow-500 shadow border border-white/5' : 'text-white/40 hover:text-white'
-                  }`}
-                >
-                  <Cpu size={11} />
-                  <span>2. run_edge_tts.py (Mã nguồn chính 🌟)</span>
-                </button>
-                <button
-                  onClick={() => setActiveCodeTab('run_js')}
-                  className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
-                    activeCodeTab === 'run_js' ? 'bg-zinc-800 text-sky-450 text-sky-400 shadow border border-white/5' : 'text-white/40 hover:text-white'
-                  }`}
-                >
-                  <Cpu size={11} />
-                  <span>3. run_edge_tts.cjs (Node JS 🎉)</span>
-                </button>
-                <button
-                  onClick={() => setActiveCodeTab('text_txt')}
-                  className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
-                    activeCodeTab === 'text_txt' ? 'bg-zinc-800 text-rose-405 text-rose-450 text-rose-400 shadow border border-white/5' : 'text-white/40 hover:text-white'
-                  }`}
-                >
-                  <FileText size={11} />
-                  <span>4. van_ban_phu_de.txt</span>
-                </button>
+          {/* Mode Switcher Buttons */}
+          <div className="flex bg-zinc-950 p-1 border border-white/5 rounded-2xl">
+            <button
+              onClick={() => setGenerationMode('online')}
+              className={`flex-1 py-3 text-center rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-xs ${
+                generationMode === 'online'
+                  ? 'bg-emerald-600 text-white shadow shadow-emerald-600/10'
+                  : 'text-white/40 hover:text-white'
+              }`}
+            >
+              <CloudLightning size={14} />
+              <span>⚡ KẾT XUẤT ONLINE (Khuyên dùng - Không cần cài đặt)</span>
+            </button>
+            <button
+              onClick={() => setGenerationMode('offline')}
+              className={`flex-1 py-3 text-center rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-xs ${
+                generationMode === 'offline'
+                  ? 'bg-zinc-800 text-white shadow'
+                  : 'text-white/40 hover:text-white'
+              }`}
+            >
+              <Terminal size={14} />
+              <span>💻 CHẠY OFFLINE LOCAL (Kịch bản CMD cá nhân)</span>
+            </button>
+          </div>
+
+          {generationMode === 'online' ? (
+            <div className="bg-[#0E0E12] border border-white/10 rounded-2xl shadow-xl flex flex-col overflow-hidden p-6 space-y-6">
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2 font-sans">
+                  <CloudLightning size={16} className="text-emerald-400 font-sans" />
+                  Kết xuất giọng nói &amp; Căn chỉnh thời gian tự động (Online Server)
+                </h3>
+                <p className="text-[11px] text-white/40 leading-relaxed font-sans">
+                  Hệ thống sẽ gửi yêu cầu trực tiếp đến Microsoft Cloud để chuyển hóa kịch bản của bạn thành audio chất lượng 24kHz kết hợp định hình tệp phụ đề <code className="text-white/60 bg-white/5 px-1 rounded">.srt</code> ăn khớp từng giây!
+                </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                {/* Copy Button */}
-                <button
-                  onClick={() => copyToClipboard(activeContent.code, activeCodeTab)}
-                  className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 hover:text-white text-white/50 text-[10.5px] px-3 py-1.5 rounded-lg border border-white/5 active:scale-95 transition-all font-semibold"
-                >
-                  {copiedState[activeCodeTab] ? (
-                    <>
-                      <Check size={11} className="text-emerald-400" />
-                      <span className="text-emerald-400 font-bold">Đã sao chép</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={11} />
-                      <span>Sao chép</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Download Button */}
-                <button
-                  onClick={() => handleDownload(activeContent.code, activeContent.filename)}
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-600/10 active:scale-95 text-white text-[10.5px] px-3 py-1.5 rounded-lg font-bold transition-all"
-                >
-                  <Download size={11} />
-                  <span>Tải tệp</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Code Body viewport */}
-            <div className="relative">
-              <pre className="p-4 bg-zinc-950 font-mono text-[10.5px] leading-relaxed text-white/85 overflow-auto h-72 border-b border-white/5">
-                <code>{activeContent.code}</code>
-              </pre>
-              <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-[#0A0A0C]/90 border border-white/10 text-[9px] text-white/30 font-mono select-none uppercase">
-                {activeContent.filename}
-              </div>
-            </div>
-
-            {/* Step-by-step instructions details */}
-            <div className="p-6 bg-emerald-950/5 border-t border-white/5 space-y-4">
-              <span className="text-xs font-bold text-white flex items-center gap-2">
-                <HelpCircle size={14} className="text-emerald-450 text-emerald-450 text-emerald-400" />
-                HƯỚNG DẪN 3 BƯỚC THUYẾT MINH VIỆM TRẦN ĐƠN GIẢN
-              </span>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">1</span>
-                    <span className="text-[11px] font-bold text-slate-200">Gom chung 1 Folder</span>
+              {onlineError && (
+                <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-400 flex items-start gap-2 animate-in fade-in duration-200">
+                  <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                  <div className="space-y-1 font-sans">
+                    <span className="font-bold block">Gặp lỗi kết xuất:</span>
+                    <p className="leading-relaxed">{onlineError}</p>
+                    <p className="text-[10px] text-rose-400/60 mt-1">Gợi ý: Hãy kiểm tra kết nối mạng của bạn hoặc bớt một số dòng trống có thể gây xung đột.</p>
                   </div>
-                  <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                    Tạo một thư mục mới trên máy tính của bạn (Vd: <code className="bg-zinc-900 text-white/60 px-1 py-0.2 rounded font-mono text-[9px]">D:\Edge_TTS</code>). Tải toàn bộ 3 tệp tin mã nguồn ở các tab trên lưu vào thư mục này.
-                  </p>
                 </div>
+              )}
 
-                <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-yellow-500/10 text-yellow-500 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">2</span>
-                    <span className="text-[11px] font-bold text-slate-200">Kích hoạt chay_tts.bat</span>
-                  </div>
-                  <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                    Kích đúp chuột trái vào tệp <strong className="text-emerald-400 font-bold">chay_tts.bat</strong>. File này sẽ tự động cài đặt thư viện python nếu chưa có và bắt đầu liên kết lấy audio thuyết minh chỉ trong 3 giây!
-                  </p>
-                </div>
+              {/* Action viewport */}
+              <div className="bg-zinc-950/80 rounded-2xl p-6 border border-white/5 space-y-6 flex flex-col items-center justify-center text-center min-h-[16rem]">
+                {!onlineSuccess && !isGeneratingOnline && (
+                  <div className="space-y-4 max-w-sm">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                      <CloudLightning size={20} className="text-emerald-400" />
+                    </div>
+                    <div className="space-y-1.5 font-sans">
+                      <span className="text-xs font-bold text-white block">Sẵn sàng khởi tạo online!</span>
+                      <p className="text-[10px] text-white/30 leading-relaxed">
+                        Nhấn nút kết xuất phía dưới để chuyển đổi toàn bộ <strong className="text-white/60">{getLines().length} dòng kịch bản</strong> sang giọng AI của <strong className="text-white/60">{selectedVoice.name} ({selectedVoice.gender})</strong>.
+                      </p>
+                    </div>
 
-                <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-4 h-4 bg-violet-500/10 text-violet-400 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">3</span>
-                    <span className="text-[11px] font-bold text-slate-200">Nạp lại vào V-Sync</span>
+                    <button
+                      onClick={handleOnlineGenerate}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white py-3.5 px-6 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/10 font-sans cursor-pointer"
+                    >
+                      <CloudLightning size={14} className="animate-bounce" />
+                      <span>BẮT ĐẦU KẾT XUẤT PHỤ ĐỀ &amp; AUDIO</span>
+                    </button>
                   </div>
-                  <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                    Ngay khi chạy xong, trong thư mục sẽ xuất hiện tự động hai file <strong className="text-lime-400 font-mono">giong_doc.mp3</strong> và <strong className="text-indigo-400 font-mono">phu_de.srt</strong>. Bạn kéo nạp ngược lại website là hoàn tất!
-                  </p>
-                </div>
+                )}
+
+                {isGeneratingOnline && (
+                  <div className="space-y-4 max-w-sm py-4">
+                    <div className="relative mx-auto w-14 h-14 flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border-2 border-emerald-500/10 border-t-emerald-500 animate-spin"></div>
+                      <CloudLightning size={20} className="text-emerald-400 animate-pulse" />
+                    </div>
+                    <div className="space-y-1.5 font-sans">
+                      <span className="text-xs font-bold text-emerald-400 block animate-pulse">Đang yêu cầu Microsoft Cloud...</span>
+                      <p className="text-[10px] text-white/30 leading-relaxed font-sans">
+                        Đang lấy mẫu giọng đọc kịch bản và căn khớp mốc thời gian mượt mà. Tiến trình có thể mất từ 5-15 giây tùy vào độ dài của kịch bản của bạn.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {onlineSuccess && (
+                  <div className="space-y-6 w-full max-w-md">
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-3">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 justify-center font-sans">
+                        <Check size={14} />
+                        <span>KẾT XUẤT HOÀN TẤT THÀNH CÔNG!</span>
+                      </div>
+                      <p className="text-[10px] text-white/50 leading-relaxed font-sans max-w-xs mx-auto">
+                        Đã sẵn sàng luồng âm thanh <strong className="text-white/70">giong_doc.mp3</strong> cùng file phụ đề khớp hoàn hảo theo dòng bối cảnh của bạn. Bạn có thể nghe thử trước hoặc áp dụng trực tiếp!
+                      </p>
+
+                      {/* Custom Audio Player */}
+                      <div className="flex items-center justify-between bg-[#0B0B0C] rounded-lg p-2.5 border border-white/5">
+                        <button
+                          onClick={handleTogglePlayPreview}
+                          className="w-8 h-8 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center active:scale-90 transition-all shrink-0 cursor-pointer"
+                        >
+                          {isPlayingAudio ? <Pause size={12} fill="white" /> : <Play size={12} fill="white" className="ml-0.5" />}
+                        </button>
+                        <div className="flex-1 px-3 text-left overflow-hidden font-sans">
+                          <span className="text-[10px] font-bold text-white block truncate">Mẫu nghe thử Trình Thuyết Minh</span>
+                          <span className="text-[8px] text-white/30 font-mono block">Giọng đọc: {selectedVoice.name} ({speed.toFixed(1)}x)</span>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1 bg-white/5 px-2 py-1 rounded text-[8px] font-mono font-bold text-emerald-400">
+                          <Volume2 size={10} />
+                          <span>Online</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5 font-sans">
+                      {onAudioAndSubtitlesGenerated && (
+                        <button
+                          onClick={handleApplyToProject}
+                          className="w-full bg-linear-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 hover:shadow-xl hover:shadow-emerald-600/15 active:scale-[0.98] text-white py-3 px-6 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border border-emerald-400/20 select-none animate-pulse cursor-pointer"
+                        >
+                          <Sparkles size={13} className="text-amber-300" />
+                          <span>⚡ ÁP DỤNG TRỰC TIẾP VÀO DỰ ÁN (1 CLICK)</span>
+                        </button>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Download MP3 */}
+                        <a
+                          href={onlineAudioUrl || undefined}
+                          download="giong_doc.mp3"
+                          className="bg-[#121216] select-none hover:bg-zinc-800 text-white/80 py-2.5 px-4 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 border border-white/5 active:scale-95 animate-in slide-in-from-left-2 duration-150 cursor-pointer font-sans"
+                        >
+                          <Download size={12} />
+                          <span>Tải giong_doc.mp3</span>
+                        </a>
+
+                        {/* Download SRT */}
+                        <button
+                          onClick={() => {
+                            if (!onlineSrtContent) return;
+                            const blob = new Blob([onlineSrtContent], { type: 'text/plain;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'phu_de.srt';
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          }}
+                          className="bg-[#121216] select-none hover:bg-zinc-800 text-white/80 py-2.5 px-4 rounded-xl font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 border border-white/5 active:scale-95 animate-in slide-in-from-right-2 duration-150 cursor-pointer font-sans"
+                        >
+                          <Download size={12} />
+                          <span>Tải phu_de.srt</span>
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={handleOnlineGenerate}
+                        className="text-[10px] text-white/30 hover:text-white flex items-center gap-1 justify-center mt-1.5 transition-all cursor-pointer font-sans"
+                      >
+                        <RefreshCw size={10} /> Tạo lại giọng đọc khác
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-[10px] text-white/60 flex items-start gap-2 leading-relaxed">
-                <Sparkles size={14} className="text-amber-400 shrink-0 mt-0.5" />
+
+              {/* Informative advice */}
+              <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-[10px] text-white/60 flex items-start gap-2 leading-relaxed font-sans">
+                <Sparkles size={14} className="text-amber-400 shrink-0 mt-0.5 animate-pulse" />
                 <span>
-                  <strong>Lợi ích vượt trội của Edge-TTS:</strong> Vì là giọng đọc đám mây tiên tiến từ Microsoft Azure, các ngữ điệu lên xuống giọng cực kỳ chân thực, tự nhiên và trơn tru gấp hàng chục lần so với Piper, đồng thời dung lượng nhỏ gọn hơn và cho phép dịch hàng chục nghìn ký tự mà không tốn xu nào!
+                  <strong>Phương pháp tiện lợi nhất:</strong> Sử dụng luồng kết xuất Online giúp bạn không cần cài đặt Python hay chạy bất cứ lệnh DOS/CMD phức tạp nào trên máy tính. Bạn vừa có thể nghe thử trước giọng thuyết minh, vừa nạp trực tiếp chỉ qua 1 click cực kỳ tinh giản, mượt mà!
                 </span>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-[#0E0E12] border border-white/10 rounded-2xl shadow-xl flex flex-col overflow-hidden">
+               {/* Header tab controller */}
+              <div className="bg-zinc-950 p-4 border-b border-white/5 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div className="flex gap-1.5 bg-white/5 p-1 rounded-lg border border-white/10 text-xs flex-wrap">
+                  <button
+                    onClick={() => setActiveCodeTab('run_bat')}
+                    className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
+                      activeCodeTab === 'run_bat' ? 'bg-zinc-800 text-emerald-400 shadow border border-white/5' : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    <Terminal size={11} />
+                    <span>1. chay_tts.bat</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveCodeTab('run_py')}
+                    className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
+                      activeCodeTab === 'run_py' ? 'bg-zinc-800 text-yellow-500 shadow border border-white/5' : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    <Cpu size={11} />
+                    <span>2. run_edge_tts.py (Mã nguồn chính 🌟)</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveCodeTab('run_js')}
+                    className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
+                      activeCodeTab === 'run_js' ? 'bg-zinc-800 text-sky-450 text-sky-400 shadow border border-white/5' : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    <Cpu size={11} />
+                    <span>3. run_edge_tts.cjs (Node JS 🎉)</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveCodeTab('text_txt')}
+                    className={`px-3 py-1.5 rounded-md font-bold flex items-center gap-1.5 transition-all text-[11px] ${
+                      activeCodeTab === 'text_txt' ? 'bg-zinc-800 text-rose-405 text-rose-450 text-rose-400 shadow border border-white/5' : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    <FileText size={11} />
+                    <span>4. van_ban_phu_de.txt</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 font-sans">
+                  {/* Copy Button */}
+                  <button
+                    onClick={() => copyToClipboard(activeContent.code, activeCodeTab)}
+                    className="flex items-center gap-1.5 bg-zinc-900 hover:bg-zinc-800 hover:text-white text-white/50 text-[10.5px] px-3 py-1.5 rounded-lg border border-white/5 active:scale-95 transition-all font-semibold cursor-pointer"
+                  >
+                    {copiedState[activeCodeTab] ? (
+                      <>
+                        <Check size={11} className="text-emerald-400" />
+                        <span className="text-emerald-400 font-bold">Đã sao chép</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={11} />
+                        <span>Sao chép</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Download Button */}
+                  <button
+                    onClick={() => handleDownload(activeContent.code, activeContent.filename)}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-600/10 active:scale-95 text-white text-[10.5px] px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer"
+                  >
+                    <Download size={11} />
+                    <span>Tải tệp</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Code Body viewport */}
+              <div className="relative">
+                <pre className="p-4 bg-zinc-950 font-mono text-[10.5px] leading-relaxed text-white/85 overflow-auto h-72 border-b border-white/5">
+                  <code>{activeContent.code}</code>
+                </pre>
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-[#0A0A0C]/90 border border-white/10 text-[9px] text-white/30 font-mono select-none uppercase">
+                  {activeContent.filename}
+                </div>
+              </div>
+
+              {/* Step-by-step instructions details */}
+              <div className="p-6 bg-emerald-950/5 border-t border-white/5 space-y-4">
+                <span className="text-xs font-bold text-white flex items-center gap-2 font-sans">
+                  <HelpCircle size={14} className="text-emerald-400" />
+                  HƯỚNG DẪN 3 BƯỚC THUYẾT MINH OFFLINE ĐƠN GIẢN TRÊN MÁY TÍNH
+                </span>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans text-xs">
+                  <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">1</span>
+                      <span className="text-[11px] font-bold text-slate-200">Gom chung 1 Folder</span>
+                    </div>
+                    <p className="text-[10px] text-white/40 leading-relaxed font-sans">
+                      Tạo một thư mục mới trên máy tính của bạn (Vd: <code className="bg-zinc-900 text-white/60 px-1 py-0.2 rounded font-mono text-[9px]">D:\Edge_TTS</code>). Tải toàn bộ 3 tệp tin mã nguồn ở các tab trên lưu vào thư mục này.
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-yellow-500/10 text-yellow-500 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">2</span>
+                      <span className="text-[11px] font-bold text-slate-200">Kích hoạt chay_tts.bat</span>
+                    </div>
+                    <p className="text-[10px] text-white/40 leading-relaxed font-sans">
+                      Kích đúp chuột trái vào tệp <strong className="text-emerald-400 font-bold">chay_tts.bat</strong>. File này sẽ tự động cài đặt thư viện python nếu chưa có và bắt đầu liên kết lấy audio thuyết minh chỉ trong 3 giây!
+                    </p>
+                  </div>
+
+                  <div className="bg-zinc-950/80 p-3.5 rounded-xl border border-white/5 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-4 h-4 bg-violet-500/10 text-violet-400 rounded-full flex items-center justify-center text-[9px] font-mono font-bold">3</span>
+                      <span className="text-[11px] font-bold text-slate-200">Nạp lại vào V-Sync</span>
+                    </div>
+                    <p className="text-[10px] text-white/40 leading-relaxed font-sans">
+                      Ngay khi chạy xong, trong thư mục sẽ xuất hiện tự động hai file <strong className="text-lime-400 font-mono">giong_doc.mp3</strong> và <strong className="text-indigo-400 font-mono">phu_de.srt</strong>. Bạn kéo nạp ngược lại website là hoàn tất!
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-[10px] text-white/60 flex items-start gap-2 leading-relaxed font-sans">
+                  <Sparkles size={14} className="text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+                  <span>
+                    <strong>Cần cài đặt những gì?</strong> Đối với chế độ chạy Offline Local này, máy tính cá nhân của bạn cần cài đặt sẵn Python (trong lúc cài Windows hãy tích chọn "Add python to PATH"). Nếu máy của bạn không cài đặt sẵn Python, chúng tôi khuyên bạn nên sử dụng tùy chọn <strong>KẾT XUẤT ONLINE</strong> tiện lợi ở kề bên!
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
