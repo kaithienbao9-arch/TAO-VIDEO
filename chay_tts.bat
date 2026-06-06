@@ -43,7 +43,7 @@ if exist "piper_win.zip" (
 )
 
 echo [*] Downloading Piper TTS Engine (Windows x64)...
-powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_windows_amd64.zip' -OutFile 'piper_win.zip'"
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip' -OutFile 'piper_win.zip'"
 
 REM Check if download succeeded and file is not empty/corrupted
 if not exist "piper_win.zip" goto DOWNLOAD_ERROR
@@ -69,7 +69,7 @@ echo =======================================================================
 echo To fix this easily, please follow these simple steps:
 echo.
 echo 1. Open your web browser and paste/click this link to download:
-echo    https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_windows_amd64.zip
+echo    https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip
 echo.
 echo 2. Save the ZIP file directly into this folder where the bat file is run.
 echo.
