@@ -1,9 +1,10 @@
 @echo off
 cd /d "%~dp0"
-title Microsoft Edge-TTS - Hoai An (vi-VN) - V-Sync Engine
+cd ..
+title Microsoft Edge-TTS - Chay Mac Dinh (vi-VN) - V-Sync Engine
 cls
 echo =======================================================================
-echo    AUTOMATIC MICROSOFT EDGE-TTS (VOICE: Hoai An - vi-VN Miền Bắc Nữ)
+echo    AUTOMATIC MICROSOFT EDGE-TTS (VOICE: Hoai My - vi-VN Miền Nam Nữ)
 echo                     Powered by V-Sync Engine
 echo =======================================================================
 echo.
@@ -24,8 +25,8 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-echo [*] Dang khoi dong giong doc AI: Hoai An (vi-VN-HoaiAnNeural)...
-python run_piper.py vi-VN-HoaiAnNeural
+echo [*] Dang khoi dong giong doc AI mac dinh...
+python run_piper.py vi-VN-HoaiMyNeural
 
 if %errorlevel% equ 0 (
     echo.

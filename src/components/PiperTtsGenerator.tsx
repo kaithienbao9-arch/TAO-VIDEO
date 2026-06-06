@@ -74,12 +74,12 @@ const EDGE_VOICES: EdgeVoice[] = [
     description: 'Giọng nam Mỹ đĩnh đạc, ấm áp, sâu sắc và đầy sức mạnh cho video công nghệ, phim tài liệu ngắn.'
   },
   {
-    id: 'en_gb_sonia',
-    name: 'Sonia (en-GB)',
+    id: 'en_us_jenny',
+    name: 'Jenny (en-US)',
     gender: 'Nữ',
-    accent: 'Anh Quốc (UK)',
-    voiceId: 'en-GB-SoniaNeural',
-    description: 'Giọng nữ Anh sang trọng, quý phái, chuẩn âm điệu hoàng gia, tuyệt vời cho các nội dung lịch lãm.'
+    accent: 'Mỹ (US)',
+    voiceId: 'en-US-JennyNeural',
+    description: 'Giọng nữ Mỹ truyền cảm, tự nhiên, thích hợp cho các video tin tức, truyện, vlog hoặc giới thiệu sản phẩm.'
   },
   {
     id: 'it_it_elsa',
@@ -96,6 +96,22 @@ const EDGE_VOICES: EdgeVoice[] = [
     accent: 'Ý (Italy)',
     voiceId: 'it-IT-DiegoNeural',
     description: 'Giọng nam tiếng Ý đĩnh đạc, nam tính, trầm ấm, thích hợp cho tài liệu, giới thiệu địa danh và bài giảng.'
+  },
+  {
+    id: 'de_de_katja',
+    name: 'Katja (de-DE)',
+    gender: 'Nữ',
+    accent: 'Đức (Germany)',
+    voiceId: 'de-DE-KatjaNeural',
+    description: 'Giọng nữ Đức rõ ràng, chuyên nghiệp, lý tưởng cho sách nói, tin tức, tài liệu học tập và video thuyết trình.'
+  },
+  {
+    id: 'de_de_conrad',
+    name: 'Conrad (de-DE)',
+    gender: 'Nam',
+    accent: 'Đức (Germany)',
+    voiceId: 'de-DE-ConradNeural',
+    description: 'Giọng nam Đức trầm ấm, dõng dạc, truyền cảm, thích hợp cho video lịch sử, công nghệ, tài liệu khoa học.'
   }
 ];
 
@@ -1043,6 +1059,8 @@ Mỗi dòng viết xuống sẽ trở thành 1 phân cảnh srt có mốc thời
                         fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_mien_${v.accent.includes("Nam") ? "nam" : "bac"}_${v.name.split(' ')[0]}.bat`;
                       } else if (v.voiceId.startsWith("en-")) {
                         fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_tieng_anh_${v.name.split(' ')[0]}.bat`;
+                      } else if (v.voiceId.startsWith("de-")) {
+                        fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_tieng_duc_${v.name.split(' ')[0]}.bat`;
                       } else if (v.voiceId.startsWith("it-")) {
                         fileNameStr = `chay_giong_${v.gender === "Nam" ? "nam" : "nu"}_tieng_y_${v.name.split(' ')[0]}.bat`;
                       }

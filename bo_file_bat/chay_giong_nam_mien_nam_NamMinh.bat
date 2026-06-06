@@ -1,5 +1,6 @@
 @echo off
 cd /d "%~dp0"
+cd ..
 title Microsoft Edge-TTS - Nam Minh (vi-VN) - V-Sync Engine
 cls
 echo =======================================================================

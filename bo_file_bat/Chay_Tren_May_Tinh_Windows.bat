@@ -1,15 +1,16 @@
 @echo off
 title KHOI DONG CREATOR VIDEO PRO - V-SYNC ENGINE
 cd /d "%~dp0"
+cd ..
 cls
 
 echo ====================================================================
-echo               CREATOR VIDEO PRO - TRINH TAO VIDEO TU DONG
-echo                     Phat trien boi V-Sync Engine
-echo ====================================================================
-echo.
-echo Dang kiem tra moi truong may tinh cua ban...
-echo.
+2: echo               CREATOR VIDEO PRO - TRINH TAO VIDEO TU DONG
+3: echo                     Phat trien boi V-Sync Engine
+4: echo ====================================================================
+5: echo.
+6: echo Dang kiem tra moi truong may tinh cua ban...
+7: echo.
 
 :: Kiem tra xem Node.js da duoc cai dat chua
 where node >nul 2>nul
@@ -70,11 +71,11 @@ echo [CANH BAO] Khong tim thay Node.js tren may tinh cua ban!
 echo De chay phan mem nay doc lap, ban can cai dat mot cong cu mien phi ten la Node.js.
 echo.
 echo Lam the nao de cai duoc:
-echo 1. Trinh duyet cua ban se tu dong mo trang web tai Node.js ngay sau day.
-echo 2. Chon ban "LTS" (Khuyen dung cho lau dai), tai ve va cai dat giong nhu phan mem binh thuong (Bam Next -> Next -> Finish).
-echo 3. Sau khi cai dat xong, hay mo lai file .bat nay!
-echo.
-echo Thiet bi se tu dong mo trang web tai sau 5 giay...
+2: echo 1. Trinh duyet cua ban se tu dong mo trang web tai Node.js ngay sau day.
+3: echo 2. Chon ban "LTS" (Khuyen dung cho lau dai), tai ve va cai dat giong nhu phan mem binh thuong (Bam Next -> Next -> Finish).
+4: echo 3. Sau khi cai dat xong, hay mo lai file .bat nay!
+5: echo.
+6: echo Thiet bi se tu dong mo trang web tai sau 5 giay...
 timeout /t 5 >nul
 start https://nodejs.org/
 pause

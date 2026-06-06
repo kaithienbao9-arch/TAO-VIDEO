@@ -1,9 +1,10 @@
 @echo off
 cd /d "%~dp0"
-title Microsoft Edge-TTS Generator - V-Sync Engine
+cd ..
+title Microsoft Edge-TTS - Diego (it-IT) - V-Sync Engine
 cls
 echo =======================================================================
-echo          AUTOMATIC MICROSOFT EDGE-TTS GENERATOR TOOLKIT
+echo    AUTOMATIC MICROSOFT EDGE-TTS (VOICE: Diego - it-IT Ý Nam)
 echo                     Powered by V-Sync Engine
 echo =======================================================================
 echo.
@@ -24,8 +25,8 @@ if %errorlevel% neq 0 (
     exit /b
 )
 
-echo [*] Dang khoi dong trinh bien dich Edge-TTS sieu nhan (Python)...
-python run_piper.py
+echo [*] Dang khoi dong giong doc AI: Diego (it-IT-DiegoNeural)...
+python run_piper.py it-IT-DiegoNeural
 
 if %errorlevel% equ 0 (
     echo.
