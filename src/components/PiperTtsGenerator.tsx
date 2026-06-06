@@ -336,24 +336,28 @@ async def generate_speech_chunk(sentence, voice, rate, chunk_idx, temp_dir):
 
 async def generate_silence_chunk(duration, voice, chunk_idx, temp_dir):
     part_silence = os.path.join(temp_dir, f"silence_{chunk_idx:04d}.mp3")
-    ms = int(duration * 1000)
     
-    # Sử dụng SSML break tag để Microsoft tự động tạo audio im lặng đồng bộ hoàn hảo
-    ssml = f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="vi-VN"><voice name="{voice}"><break time="{ms}ms"/></voice></speak>'
-    communicate = edge_tts.Communicate(ssml, voice)
-    
-    audio_data = bytearray()
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            audio_data.extend(chunk["data"])
+    # Tạo khoảng lặng offline 100% - Không dùng SSML tránh máy tính đọc nhầm các ký tự XML
+    # Chuỗi base64 của một khung MP3 im lặng tiêu chuẩn (MPEG-2 Layer III, Mono, 16000Hz, 32 kbps)
+    # Mỗi khung âm thanh im lặng này tương đương khoảng 0.036 giây.
+    silent_frame_b64 = (
+        "//NExAAAAH0AAB76AAAAb0EAAAD5AAAAAG6A/4BAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWw=="
+    )
+    import base64
+    try:
+        frame_bytes = base64.b64decode(silent_frame_b64)
+        num_frames = max(1, int(duration / 0.036))
+        
+        with open(part_silence, "wb") as f:
+            f.write(frame_bytes * num_frames)
             
-    if not audio_data:
+        return part_silence
+    except Exception as e:
+        print(f" [!] Gặp lỗi khi tạo khoảng lặng offline: {e}")
         return None
-        
-    with open(part_silence, "wb") as f:
-        f.write(audio_data)
-        
-    return part_silence
 
 async def async_main():
     print("==================================================")
