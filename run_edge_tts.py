@@ -5,8 +5,9 @@ import re
 
 # --- CẤU HÌNH ĐỒNG BỘ EDGE-TTS V-SYNC ENGINE ---
 INPUT_FILE = "van_ban_phu_de.txt"
-OUTPUT_AUDIO = "giong_doc.mp3"
-OUTPUT_SRT = "phu_de.srt"
+OUTPUT_DIR = "Output"
+OUTPUT_AUDIO = os.path.join(OUTPUT_DIR, "giong_doc.mp3")
+OUTPUT_SRT = os.path.join(OUTPUT_DIR, "phu_de.srt")
 VOICE_ID = "vi-VN-HoaiMyNeural"  # Giọng nữ Miền Nam truyền cảm chất lượng hàng đầu
 SPEED_RATE = "+0%"
 SILENCE_GAP = 0.3  # Khoảng lặng nghỉ giữa mỗi câu (giây)
@@ -124,6 +125,7 @@ async def async_main():
     
     temp_dir = "temp_edge_tts"
     os.makedirs(temp_dir, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     temp_audio_files = []
     srt_blocks = []

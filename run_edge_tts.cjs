@@ -6,10 +6,10 @@ console.log("==================================================");
 console.log("    EDGE-TTS INTERMEDIARY CLIENT (V-SYNC ENGINE)   ");
 console.log("==================================================");
 
-const pythonScript = path.join(__dirname, "run_piper.py");
+const pythonScript = path.join(__dirname, "run_edge_tts.py");
 
 if (!fs.existsSync(pythonScript)) {
-  console.error("[LỖI] Không tìm thấy file run_piper.py!");
+  console.error("[LỖI] Không tìm thấy file run_edge_tts.py!");
   process.exit(1);
 }
 

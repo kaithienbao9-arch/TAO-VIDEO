@@ -276,8 +276,9 @@ import re
 
 # --- CẤU HÌNH ĐÃ ĐỒNG BỘ TỪ GIAO DIỆN V-SYNC ENGINE ---
 INPUT_FILE = "van_ban_phu_de.txt"
-OUTPUT_AUDIO = "giong_doc.mp3"
-OUTPUT_SRT = "phu_de.srt"
+OUTPUT_DIR = "Output"
+OUTPUT_AUDIO = os.path.join(OUTPUT_DIR, "giong_doc.mp3")
+OUTPUT_SRT = os.path.join(OUTPUT_DIR, "phu_de.srt")
 VOICE_ID = "${selectedVoice.voiceId}"
 SPEED_RATE = "${getRateString()}"
 SILENCE_GAP = ${silenceGap}  # Khoảng lặng nghỉ giữa mỗi câu (giây)
@@ -398,6 +399,7 @@ async def async_main():
     
     temp_dir = "temp_edge_tts"
     os.makedirs(temp_dir, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     temp_audio_files = []
     srt_blocks = []
@@ -545,6 +547,16 @@ echo                     Powered by V-Sync Engine
 echo =======================================================================
 echo.
 
+REM Xóa các file kết quả cũ trong thư mục Output để chuẩn bị cho lượt tạo mới
+if exist "Output\\giong_doc.mp3" (
+    echo [*] Dang don dep file giong_doc.mp3 cu trong thu muc Output...
+    del /f /q "Output\\giong_doc.mp3"
+)
+if exist "Output\\phu_de.srt" (
+    echo [*] Dang don dep file phu_de.srt cu trong thu muc Output...
+    del /f /q "Output\\phu_de.srt"
+)
+
 REM Kiểm tra sự hiện diện của môi trường Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
@@ -572,9 +584,9 @@ if %errorlevel% equ 0 (
     echo.
     echo =======================================================================
     echo [ THÀNH CÔNG RỰC RỠ ]
-    echo Đã tạo xong file giọng đọc [giong_doc.mp3] và file phụ đề [phu_de.srt]!
+    echo Đã tạo xong file giọng đọc [giong_doc.mp3] và file phụ đề [phu_de.srt] trong thu muc Output!
     echo.
-    echo Kế tiếp: Hãy kéo thả 2 tệp tin này trực tiếp vào V-Sync Engine trên web
+    echo Kế tiếp: Hãy kéo thả 2 tệp tin này (tu thu muc Output) trực tiếp vào V-Sync Engine trên web
     echo để thưởng thức thành phẩm ăn khớp slide bối cảnh bento-grid đỉnh cao!
     echo =======================================================================
 ) else (
@@ -1121,7 +1133,7 @@ Mỗi dòng viết xuống sẽ trở thành 1 phân cảnh srt có mốc thời
                       <span className="text-[11px] font-bold text-slate-200">Nạp lại vào V-Sync</span>
                     </div>
                     <p className="text-[10px] text-white/40 leading-relaxed font-sans">
-                      Ngay khi chạy xong, trong thư mục sẽ xuất hiện tự động hai file <strong className="text-lime-400 font-mono">giong_doc.mp3</strong> và <strong className="text-indigo-400 font-mono">phu_de.srt</strong>. Bạn kéo nạp ngược lại website để tự động phát khớp video bối cảnh!
+                      Ngay khi chạy xong, trong thư mục <strong className="text-emerald-400 font-mono">Output</strong> sẽ tự động xuất hiện hai file <strong className="text-lime-400 font-mono">giong_doc.mp3</strong> và <strong className="text-indigo-400 font-mono">phu_de.srt</strong>. Bạn kéo 2 file này từ thư mục Output nạp lại vào website để tự động phát khớp video bối cảnh!
                     </p>
                   </div>
                 </div>

@@ -9,6 +9,16 @@ echo                     Powered by V-Sync Engine
 echo =======================================================================
 echo.
 
+REM Xoa cac file ket qua cu trong thu muc Output de chuan bi cho luot tao moi
+if exist "Output\giong_doc.mp3" (
+    echo [*] Dang don dep file giong_doc.mp3 cu trong thu muc Output...
+    del /f /q "Output\giong_doc.mp3"
+)
+if exist "Output\phu_de.srt" (
+    echo [*] Dang don dep file phu_de.srt cu trong thu muc Output...
+    del /f /q "Output\phu_de.srt"
+)
+
 REM Kiem tra moi truong Python
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
@@ -26,15 +36,15 @@ if %errorlevel% neq 0 (
 )
 
 echo [*] Dang khoi dong giong doc AI: Hoai An (vi-VN-HoaiAnNeural)...
-python run_piper.py vi-VN-HoaiAnNeural
+python run_edge_tts.py vi-VN-HoaiAnNeural
 
 if %errorlevel% equ 0 (
     echo.
     echo =======================================================================
     echo [ THANH CONG RUC RO ]
-    echo Da tao xong file giong doc [giong_doc.mp3] va file phu de [phu_de.srt]!
+    echo Da tao xong file giong doc [giong_doc.mp3] va file phu de [phu_de.srt] trong thu muc Output!
     echo.
-    echo Han hanh: Hay de keo tha 2 tep tin nay truc tiep vao V-Sync Engine tren web!
+    echo Han hanh: Hay keo tha 2 tep tin nay (tu thu muc Output) truc tiep vao V-Sync Engine tren web!
     echo =======================================================================
 ) else (
     echo.
