@@ -327,33 +327,99 @@ def get_mp3_duration(data):
     size = len(data)
     if size == 0:
         return 0.0
-    for i in range(min(4096, size - 4)):
-        if data[i] == 0xFF and (data[i+1] & 0xE0) == 0xE0:
-            version = (data[i+1] & 0x18) >> 3
-            layer = (data[i+1] & 0x06) >> 1
-            bitrate_idx = (data[i+2] & 0xF0) >> 4
+        
+    offset = 0
+    # 1. Bỏ qua ID3v2 header nếu có
+    if size >= 10 and data[0:3] == b'ID3':
+        s0 = data[6] & 0x7F
+        s1 = data[7] & 0x7F
+        s2 = data[8] & 0x7F
+        s3 = data[9] & 0x7F
+        tag_size = (s0 << 21) | (s1 << 14) | (s2 << 7) | s3
+        offset = 10 + tag_size
+        
+    total_duration = 0.0
+    
+    # Bản đồ bitrates dựa trên Layer (3=Layer I, 2=Layer II, 1=Layer III) và MPEG version keys
+    bitrates_map = {
+        (3, 3): [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448],
+        (3, 2): [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384],
+        (3, 1): [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320],
+        (2, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256],
+        (2, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+        (2, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+        (0, 3): [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256],
+        (0, 2): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160],
+        (0, 1): [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160]
+    }
+    
+    # Bản đồ tần số lấy mẫu (samplerate) cho MPEG-1 (3), MPEG-2 (2), MPEG-2.5 (0)
+    samplerates_map = {
+        3: [44100, 48000, 32000],
+        2: [22050, 24000, 16000],
+        0: [11025, 12000, 8000]
+    }
+    
+    while offset < size - 4:
+        if data[offset] == 0xFF and (data[offset+1] & 0xE0) == 0xE0:
+            version = (data[offset+1] & 0x18) >> 3
+            layer = (data[offset+1] & 0x06) >> 1
+            bitrate_idx = (data[offset+2] & 0xF0) >> 4
+            sr_idx = (data[offset+2] & 0x0C) >> 2
+            padding = (data[offset+2] & 0x02) >> 1
             
-            if version == 3:  # Version 1
-                if layer == 3:  # Layer I
-                    bitrates = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0]
-                elif layer == 2:  # Layer II
-                    bitrates = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 384, 0]
-                else:  # Layer III
-                    bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
-            else:  # Version 2 or 2.5
-                if layer == 3:  # Layer I
-                    bitrates = [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0]
-                elif layer == 2:  # Layer II
-                    bitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
-                else:  # Layer III
-                    bitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
-                    
+            if version == 1 or layer == 0 or bitrate_idx == 0xF or sr_idx == 3:
+                offset += 1
+                continue
+                
+            ver_key = version if version in [3, 2, 0] else 2
+            map_ver = 2 if ver_key in [0, 2] else 3
+            
             try:
+                bitrates = bitrates_map.get((ver_key, layer), bitrates_map.get((map_ver, layer)))
+                if not bitrates or bitrate_idx >= len(bitrates):
+                    offset += 1
+                    continue
                 bitrate = bitrates[bitrate_idx] * 1000
-                if bitrate > 0:
-                    return size / (bitrate / 8.0)
-            except IndexError:
-                pass
+                
+                srs = samplerates_map.get(ver_key)
+                if not srs or sr_idx >= len(srs):
+                    offset += 1
+                    continue
+                samplerate = srs[sr_idx]
+            except Exception:
+                offset += 1
+                continue
+                
+            if bitrate == 0 or samplerate == 0:
+                offset += 1
+                continue
+                
+            if layer == 3:  # Layer I
+                samples_per_frame = 384
+                frame_size = int(12 * bitrate / samplerate + padding) * 4
+            elif layer == 2:  # Layer II
+                samples_per_frame = 1152
+                frame_size = int(144 * bitrate / samplerate) + padding
+            else:  # Layer III
+                if version == 3:  # MPEG-1 Layer III
+                    samples_per_frame = 1152
+                    frame_size = int(144 * bitrate / samplerate) + padding
+                else:  # MPEG-2/2.5 Layer III
+                    samples_per_frame = 576
+                    frame_size = int(72 * bitrate / samplerate) + padding
+                    
+            if frame_size <= 0:
+                offset += 1
+                continue
+                
+            total_duration += samples_per_frame / float(samplerate)
+            offset += frame_size
+        else:
+            offset += 1
+            
+    if total_duration > 0:
+        return total_duration
     return size / 6000.0  # Fallback to 48kbps CBR
 
 async def generate_speech_chunk(sentence, voice, rate, chunk_idx, temp_dir):
