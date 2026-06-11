@@ -446,9 +446,9 @@ async def generate_speech_chunk(sentence, voice, rate, chunk_idx, temp_dir):
 async def generate_silence_chunk(duration, voice, chunk_idx, temp_dir):
     part_silence = os.path.join(temp_dir, f"silence_{chunk_idx:04d}.mp3")
     
-    # Tạo khoảng lặng offline 100% - Không dùng SSML tránh máy tính đọc nhầm các ký tự XML
-    # Chuỗi base64 của một khung MP3 im lặng tiêu chuẩn (MPEG-2 Layer III, Mono, 16000Hz, 32 kbps)
-    # Mỗi khung âm thanh im lặng này tương đương khoảng 0.036 giây.
+    # Chuỗi base64 của một khung MP3 im lặng tiêu chuẩn (MPEG-2 Layer III, Mono)
+    # Chúng tôi tinh chỉnh đè tiêu đề đầu (4 bytes) khớp cấu hình 24000Hz, 48kbps, Mono của Edge-TTS
+    # Mỗi khung âm thanh im lặng này tương đương đúng 0.024 giây tại tần số 24000Hz.
     silent_frame_b64 = (
         "//NExAAAAH0AAB76AAAAb0EAAAD5AAAAAG6A/4BAAAAAAAAAAAAAAAAA"
         "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -457,9 +457,15 @@ async def generate_silence_chunk(duration, voice, chunk_idx, temp_dir):
     )
     import base64
     try:
-        frame_bytes = base64.b64decode(silent_frame_b64)
-        num_frames = max(1, int(duration / 0.036))
-        silence_data = frame_bytes * num_frames
+        frame_bytes = bytearray(base64.b64decode(silent_frame_b64))
+        # Đè header định danh: FF F3 64 C4 khớp chính xác 24000Hz, 48kbps Mono
+        frame_bytes[0] = 0xFF
+        frame_bytes[1] = 0xF3
+        frame_bytes[2] = 0x64  # 48kbps, 24000Hz, padding 0
+        frame_bytes[3] = 0xC4  # Mono, original
+        
+        num_frames = max(1, int(round(duration / 0.024)))
+        silence_data = bytes(frame_bytes) * num_frames
         
         with open(part_silence, "wb") as f:
             f.write(silence_data)

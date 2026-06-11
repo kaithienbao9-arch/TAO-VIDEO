@@ -90,17 +90,24 @@ async function startServer() {
 
         // 3. Add silence gap if not the last item and gap > 0
         if (i < lines.length - 1 && parsedSilenceGap > 0) {
-          const silenceMs = Math.round(parsedSilenceGap * 1000);
-          try {
-            // Call tts with break element to get perfect silence
-            const silenceBuffer = await tts(`<break time="${silenceMs}ms"/>`, {
-              voice: activeVoice,
-            });
-            audioBuffers.push(silenceBuffer);
-          } catch (silenceErr) {
-            console.warn('[Edge-TTS API] Lỗi chèn khoảng lặng trực tiếp, sử dụng giả lập thời gian:', silenceErr);
+          const numFrames = Math.max(1, Math.round(parsedSilenceGap / 0.024));
+          const actualSilenceDuration = numFrames * 0.024;
+          
+          const silentFrameBase64 = "//NExAAAAH0AAB76AAAAb0EAAAD5AAAAAG6A/4BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWw==";
+          const silentFrameBuffer = Buffer.from(silentFrameBase64, 'base64');
+          silentFrameBuffer[0] = 0xFF;
+          silentFrameBuffer[1] = 0xF3;
+          silentFrameBuffer[2] = 0x64; // 48kbps, 24000Hz, padding 0
+          silentFrameBuffer[3] = 0xC4; // Mono, original
+          
+          const silenceBuffersList = [];
+          for (let f = 0; f < numFrames; f++) {
+            silenceBuffersList.push(Buffer.from(silentFrameBuffer));
           }
-          currentTime = endT + parsedSilenceGap;
+          const silenceBuffer = Buffer.concat(silenceBuffersList);
+          
+          audioBuffers.push(silenceBuffer);
+          currentTime = endT + actualSilenceDuration;
         } else {
           currentTime = endT;
         }
