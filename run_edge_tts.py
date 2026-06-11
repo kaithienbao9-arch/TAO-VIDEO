@@ -46,12 +46,44 @@ except ImportError:
         sys.exit(1)
 
 def format_srt_time(seconds):
-    hrs = int(seconds // 3605)
     hrs = int(seconds // 3600)
     mints = int((seconds % 3600) // 60)
     secs = int(seconds % 60)
     millis = int((seconds % 1) * 1000)
     return f"{hrs:02d}:{mints:02d}:{secs:02d},{millis:03d}"
+
+def get_mp3_duration(data):
+    size = len(data)
+    if size == 0:
+        return 0.0
+    for i in range(min(4096, size - 4)):
+        if data[i] == 0xFF and (data[i+1] & 0xE0) == 0xE0:
+            version = (data[i+1] & 0x18) >> 3
+            layer = (data[i+1] & 0x06) >> 1
+            bitrate_idx = (data[i+2] & 0xF0) >> 4
+            
+            if version == 3:  # Version 1
+                if layer == 3:  # Layer I
+                    bitrates = [0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0]
+                elif layer == 2:  # Layer II
+                    bitrates = [0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 384, 0]
+                else:  # Layer III
+                    bitrates = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0]
+            else:  # Version 2 or 2.5
+                if layer == 3:  # Layer I
+                    bitrates = [0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0]
+                elif layer == 2:  # Layer II
+                    bitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+                else:  # Layer III
+                    bitrates = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0]
+                    
+            try:
+                bitrate = bitrates[bitrate_idx] * 1000
+                if bitrate > 0:
+                    return size / (bitrate / 8.0)
+            except IndexError:
+                pass
+    return size / 6000.0  # Fallback to 48kbps CBR
 
 async def generate_speech_chunk(sentence, voice, rate, chunk_idx, temp_dir):
     part_mp3 = os.path.join(temp_dir, f"part_{chunk_idx:04d}.mp3")
@@ -59,15 +91,10 @@ async def generate_speech_chunk(sentence, voice, rate, chunk_idx, temp_dir):
     # Kết nối stream trực tiếp tới dịch vụ Speech của Microsoft
     communicate = edge_tts.Communicate(sentence, voice, rate=rate)
     audio_data = bytearray()
-    last_ticks = 0
     
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
             audio_data.extend(chunk["data"])
-        elif chunk["type"] == "WordBoundary":
-            offset = chunk["offset"]
-            duration = chunk["duration"]
-            last_ticks = max(last_ticks, offset + duration)
             
     if not audio_data:
         return None, 0.0
@@ -75,7 +102,7 @@ async def generate_speech_chunk(sentence, voice, rate, chunk_idx, temp_dir):
     with open(part_mp3, "wb") as f:
         f.write(audio_data)
         
-    duration = last_ticks / 10000000.0 if last_ticks > 0 else len(audio_data) / 6000.0
+    duration = get_mp3_duration(audio_data)
     return part_mp3, duration
 
 async def generate_silence_chunk(duration, voice, chunk_idx, temp_dir):
@@ -94,14 +121,16 @@ async def generate_silence_chunk(duration, voice, chunk_idx, temp_dir):
     try:
         frame_bytes = base64.b64decode(silent_frame_b64)
         num_frames = max(1, int(duration / 0.036))
+        silence_data = frame_bytes * num_frames
         
         with open(part_silence, "wb") as f:
-            f.write(frame_bytes * num_frames)
+            f.write(silence_data)
             
-        return part_silence
+        actual_duration = get_mp3_duration(silence_data)
+        return part_silence, actual_duration
     except Exception as e:
         print(f" [!] Gặp lỗi khi tạo khoảng lặng offline: {e}")
-        return None
+        return None, 0.0
 
 async def async_main():
     print("==================================================")
@@ -173,10 +202,12 @@ async def async_main():
             
             # 2. Tạo khoảng lặng nghỉ (trừ câu cuối)
             if idx < len(lines) and SILENCE_GAP > 0:
-                silence_path = await generate_silence_chunk(SILENCE_GAP, VOICE_ID, idx, temp_dir)
+                silence_path, silence_dur = await generate_silence_chunk(SILENCE_GAP, VOICE_ID, idx, temp_dir)
                 if silence_path:
                     temp_audio_files.append(silence_path)
-                current_time = end_t + SILENCE_GAP
+                    current_time = end_t + silence_dur
+                else:
+                    current_time = end_t
             else:
                 current_time = end_t
                 
